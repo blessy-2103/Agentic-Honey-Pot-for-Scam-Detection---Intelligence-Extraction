@@ -3,7 +3,8 @@ const app = express();
 
 app.use(express.json());
 
-const API_KEY = "honeypot-test-key-123";
+const API_KEY = process.env.API_KEY;
+
 
 // Store conversation memory
 const conversations = {};
