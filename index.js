@@ -3,8 +3,8 @@ const app = express();
 
 app.use(express.json());
 
+// ✅ Read API key from environment variable
 const API_KEY = process.env.API_KEY;
-
 
 // Store conversation memory
 const conversations = {};
@@ -46,6 +46,8 @@ function agentReply() {
   ];
   return replies[Math.floor(Math.random() * replies.length)];
 }
+
+// ✅ Test endpoint
 app.get("/honeypot", (req, res) => {
   res.json({
     message: "Honeypot API is running. Use POST for full functionality."
@@ -54,33 +56,48 @@ app.get("/honeypot", (req, res) => {
 
 // 🐝 Honeypot API
 app.post("/honeypot", (req, res) => {
-  const key = req.headers["x-api-key"];
-  if (key !== API_KEY) {
-    return res.status(401).json({ error: "Invalid API key" });
+  try {
+    // ✅ Check API key
+    const key = req.headers["x-api-key"];
+    if (key !== API_KEY) {
+      return res.status(401).json({ error: "Invalid API key" });
+    }
+
+    // ✅ Validate request body
+    const { conversation_id, message } = req.body;
+    if (!conversation_id || !message) {
+      return res.status(400).json({ error: "conversation_id and message are required" });
+    }
+
+    // ✅ Initialize conversation memory if new
+    if (!conversations[conversation_id]) {
+      conversations[conversation_id] = [];
+    }
+
+    conversations[conversation_id].push(message);
+
+    // ✅ Detect scam and extract intelligence
+    const scamDetected = detectScam(message);
+    const intelligence = extractIntelligence(message);
+
+    // ✅ Construct response
+    const response = {
+      scam_detected: scamDetected,
+      agent_activated: scamDetected,
+      conversation_metrics: {
+        total_turns: conversations[conversation_id].length
+      },
+      extracted_intelligence: intelligence,
+      agent_response: scamDetected ? agentReply() : "Hello, how can I help you?"
+    };
+
+    res.json(response);
+
+  } catch (error) {
+    // ✅ Catch-all error handler
+    console.error("Error in /honeypot:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
-
-  const { conversation_id, message } = req.body;
-
-  if (!conversations[conversation_id]) {
-    conversations[conversation_id] = [];
-  }
-
-  conversations[conversation_id].push(message);
-
-  const scamDetected = detectScam(message);
-  const intelligence = extractIntelligence(message);
-
-  const response = {
-    scam_detected: scamDetected,
-    agent_activated: scamDetected,
-    conversation_metrics: {
-      total_turns: conversations[conversation_id].length
-    },
-    extracted_intelligence: intelligence,
-    agent_response: scamDetected ? agentReply() : "Hello, how can I help you?"
-  };
-
-  res.json(response);
 });
 
 // Start server
