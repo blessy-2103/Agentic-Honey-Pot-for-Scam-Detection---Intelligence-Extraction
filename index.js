@@ -1,10 +1,11 @@
+// index.js
 const express = require("express");
 const app = express();
 
 app.use(express.json());
 
-// ✅ Read API key from environment variable
-const API_KEY = process.env.API_KEY;
+// ✅ API key from environment variable, fallback to default
+const API_KEY = process.env.API_KEY || "honeypot-test-key-123";
 
 // Store conversation memory
 const conversations = {};
@@ -47,54 +48,47 @@ function agentReply() {
   return replies[Math.floor(Math.random() * replies.length)];
 }
 
-// ✅ Test endpoint
+// ✅ Root route
+app.get("/", (req, res) => {
+  res.send("Agentic Honey-Pot API is running. Use /honeypot for POST requests.");
+});
+
+// ✅ Test GET route
 app.get("/honeypot", (req, res) => {
   res.json({
     message: "Honeypot API is running. Use POST for full functionality."
   });
 });
 
-// 🐝 Honeypot API
+// 🐝 Honeypot POST API
 app.post("/honeypot", (req, res) => {
   try {
-    // ✅ Check API key
     const key = req.headers["x-api-key"];
     if (key !== API_KEY) {
       return res.status(401).json({ error: "Invalid API key" });
     }
 
-    // ✅ Safely read request body
+    // Fail-safe for missing or malformed body
     const body = req.body || {};
     const conversation_id = body.conversation_id || "default_conv";
     const message = body.message || "";
 
-    // Initialize conversation memory
-    if (!conversations[conversation_id]) {
-      conversations[conversation_id] = [];
-    }
-
+    if (!conversations[conversation_id]) conversations[conversation_id] = [];
     conversations[conversation_id].push(message);
 
-    // Detect scam and extract intelligence
     const scamDetected = detectScam(message);
     const intelligence = extractIntelligence(message);
 
-    // Construct response
-    const response = {
+    res.json({
       scam_detected: scamDetected,
       agent_activated: scamDetected,
-      conversation_metrics: {
-        total_turns: conversations[conversation_id].length
-      },
+      conversation_metrics: { total_turns: conversations[conversation_id].length },
       extracted_intelligence: intelligence,
       agent_response: scamDetected ? agentReply() : "Hello, how can I help you?"
-    };
+    });
 
-    res.json(response);
-
-  } catch (error) {
-    // ✅ Catch-all error handler
-    console.error("Error in /honeypot:", error);
+  } catch (err) {
+    console.error("Error in /honeypot:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
