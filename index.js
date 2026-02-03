@@ -63,21 +63,23 @@ app.post("/honeypot", (req, res) => {
       return res.status(401).json({ error: "Invalid API key" });
     }
 
-    // ✅ Default values if GUVI tester sends missing fields
-    const conversation_id = req.body.conversation_id || "default_conv";
-    const message = req.body.message || "";
+    // ✅ Safely read request body
+    const body = req.body || {};
+    const conversation_id = body.conversation_id || "default_conv";
+    const message = body.message || "";
 
+    // Initialize conversation memory
     if (!conversations[conversation_id]) {
       conversations[conversation_id] = [];
     }
 
     conversations[conversation_id].push(message);
 
-    // ✅ Detect scam and extract intelligence
+    // Detect scam and extract intelligence
     const scamDetected = detectScam(message);
     const intelligence = extractIntelligence(message);
 
-    // ✅ Construct response
+    // Construct response
     const response = {
       scam_detected: scamDetected,
       agent_activated: scamDetected,
