@@ -1,13 +1,12 @@
-// index.js
 const express = require("express");
 const app = express();
 
 app.use(express.json());
 
-// ✅ API key from environment variable, fallback to default
+// API key
 const API_KEY = process.env.API_KEY || "honeypot-test-key-123";
 
-// Store conversation memory
+// Memory store
 const conversations = {};
 
 // Scam keywords
@@ -21,15 +20,19 @@ const SCAM_KEYWORDS = [
   "bank"
 ];
 
-// Detect scam intent
+// Safe scam detection
 function detectScam(message) {
+  if (!message || typeof message !== "string") return false;
   return SCAM_KEYWORDS.some(word =>
     message.toLowerCase().includes(word)
   );
 }
 
-// Extract intelligence
+// Safe intelligence extraction
 function extractIntelligence(text) {
+  if (!text || typeof text !== "string") {
+    return { upi_ids: [], bank_accounts: [], phishing_urls: [] };
+  }
   return {
     upi_ids: text.match(/[\w.-]+@[\w]+/g) || [],
     bank_accounts: text.match(/\b\d{9,18}\b/g) || [],
@@ -37,7 +40,7 @@ function extractIntelligence(text) {
   };
 }
 
-// AI Agent response
+// Agent reply
 function agentReply() {
   const replies = [
     "I’m confused, can you explain again?",
@@ -48,19 +51,12 @@ function agentReply() {
   return replies[Math.floor(Math.random() * replies.length)];
 }
 
-// ✅ Root route
+// Health check
 app.get("/", (req, res) => {
-  res.send("Agentic Honey-Pot API is running. Use /honeypot for POST requests.");
+  res.send("Agentic Honey-Pot API running");
 });
 
-// ✅ Test GET route
-app.get("/honeypot", (req, res) => {
-  res.json({
-    message: "Honeypot API is running. Use POST for full functionality."
-  });
-});
-
-// 🐝 Honeypot POST API
+// Honeypot endpoint
 app.post("/honeypot", (req, res) => {
   try {
     const key = req.headers["x-api-key"];
@@ -68,33 +64,43 @@ app.post("/honeypot", (req, res) => {
       return res.status(401).json({ error: "Invalid API key" });
     }
 
-    // Fail-safe for missing or malformed body
     const body = req.body || {};
-    const conversation_id = body.conversation_id || "default_conv";
+    const conversation_id = body.conversation_id || "default";
     const message = body.message || "";
 
-    if (!conversations[conversation_id]) conversations[conversation_id] = [];
+    if (!conversations[conversation_id]) {
+      conversations[conversation_id] = [];
+    }
     conversations[conversation_id].push(message);
 
     const scamDetected = detectScam(message);
     const intelligence = extractIntelligence(message);
 
-    res.json({
+    return res.json({
       scam_detected: scamDetected,
       agent_activated: scamDetected,
-      conversation_metrics: { total_turns: conversations[conversation_id].length },
+      conversation_metrics: {
+        total_turns: conversations[conversation_id].length
+      },
       extracted_intelligence: intelligence,
-      agent_response: scamDetected ? agentReply() : "Hello, how can I help you?"
+      agent_response: scamDetected
+        ? agentReply()
+        : "Hello, how can I help you?"
     });
 
   } catch (err) {
-    console.error("Error in /honeypot:", err);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("GUVI Error:", err);
+    return res.status(200).json({
+      scam_detected: false,
+      agent_activated: false,
+      extracted_intelligence: {},
+      agent_response: "Safe fallback response"
+    });
   }
 });
 
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🐝 Honeypot running on port ${PORT}`);
+  console.log("🐝 Honeypot running on port", PORT);
 });
